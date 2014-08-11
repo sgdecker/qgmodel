@@ -90,24 +90,24 @@ def stdatmt(p):
     """The temperature [K] of the standard atmosphere profile at pressure p.
 
     p -- The requested pressure [mb]"""
-    tlist = [  291.4,   288.1,  284.9,  281.7,  278.4,  275.2,  271.9,  \
-               268.7,   265.4,  262.2,  258.9,  255.7,  252.4,  249.2,  \
-               245.9,   242.7,  239.5,  236.2,  233.0,  229.7,  226.5,  \
-               223.3,   220.0,  216.8,  216.7]
-    plist = [1074.78, 1013.25, 954.61, 898.76, 845.60, 795.01, 746.92,  \
-              701.21,  657.80, 616.60, 577.53, 540.48, 505.39, 472.18,  \
-              440.75,  411.05, 383.00, 356.52, 331.54, 308.01, 285.85,  \
-              265.00,  245.40, 227.00, 209.85]
-    if p < plist[-1]:
-        return tlist[-1]
-    else:
-        for i in range(1,len(plist)):
-            if p > plist[i]:
-                break
-            elif p == plist[i]:
-                return tlist[i]
-        return tlist[i] - (tlist[i]-tlist[i-1])/np.log(plist[i]/plist[i-1])  \
-            * np.log(plist[i]/p)
+    tarr = np.array([     216.7,       216.8,       220. ,       223.3,  \
+                          226.5,       229.7,       233. ,       236.2,  \
+                          239.5,       242.7,       245.9,       249.2,  \
+                          252.4,       255.7,       258.9,       262.2,  \
+                          265.4,       268.7,       271.9,       275.2,  \
+                          278.4,       281.7,       284.9,       288.1,  \
+                          291.4])
+    lnp = np.array([ 5.34639299,  5.42495002,  5.50288953,  5.57972983,  \
+                      5.6554672,  5.73013225,  5.80374847,  5.87639034,  \
+                     5.94803499,  6.01871486,  6.08847782,  6.15736027,  \
+                     6.22533041,  6.29245763,  6.35876039,  6.42422052,  \
+                     6.48890093,  6.55280741,  6.61595808,  6.67835469,  \
+                     6.74004643,  6.80101604,  6.86130288,  6.92091827,  \
+                     6.97987127])
+
+    return np.interp(np.log(p), lnp, tarr)
+
+print stdatmt(500.)
 
 def integrand(p):
     """A function needed to compute the geopotential profile."""
@@ -292,19 +292,18 @@ class RelativeVorticity(Field):
 
         phi = 10 * g * z.vals  # Convert back to geopotential
 
-        self.vals.fill(np.nan)
         for j in range(1, self.dim1-1):
             self.vals[j,0] = (phi[j,-2] + phi[j-1,0] -4*phi[j,0] + phi[j+1,0]  \
-                                  + phi[j,1]) / (f0 * (1000.*dx)**2)
+                                  + phi[j,1])
             for i in range(1, self.dim2-1):
                 self.vals[j,i] = (phi[j,i-1] + phi[j-1,i] -4*phi[j,i]  \
                                       + phi[j+1,i]  \
-                                      + phi[j,i+1]) / (f0 * (1000.*dx)**2)
+                                      + phi[j,i+1])
             self.vals[j,-1] = (phi[j,-2] + phi[j-1,-1] -4*phi[j,-1]  \
                                    + phi[j+1,-1]  \
-                                   + phi[j,1]) / (f0 * (1000.*dx)**2)
-        self.vals *= 1e5  # Convert result to 10^-5 s-1
-
+                                   + phi[j,1])
+        self.vals *= 1e5 / (f0 * (1000.*dx)**2)  # Convert result to 10^-5 s-1
+        self.vals[np.ix_([0,self.dim1-1])] = np.nan
 
 class CoriolisParameter(Field):
     def __init__(self):
@@ -315,9 +314,8 @@ class CoriolisParameter(Field):
         self.contset = ax.contourf(self.x, self.y, self.vals, levels=vortint)
 
     def compute_vals(self):
-        for j in range(self.dim1):
-            for i in range(self.dim2):
-                self.vals[j,i] = 1e5 * (f0 + 1000. * beta * self.yy[j])
+        self.vals = np.transpose(  \
+            np.tile(1e5 * (f0 + 1000. * beta * self.y), (self.dim2,1)))
 
 
 class AbsoluteVorticity(Field):
@@ -491,16 +489,14 @@ class GeostrophicWind(Field):
         # Ug
         self.vals.fill(np.nan)
         for j in range(1, self.dim1-1):
-            for i in range(self.dim2):
-                self.vals[j,i] = -(phi[j+1,i] - phi[j-1,i]) / (2000.*dx)
-        self.vals = self.vals / f0
+            self.vals[j,:] = phi[j-1,:] - phi[j+1,:]
+        self.vals = self.vals / (f0 * 2000.*dx)
 
         #Vg
         self.vals2.fill(np.nan)
         for j in range(self.dim1):
-            for i in range(1, self.dim2-1):
-                self.vals2[j,i] = (phi[j,i+1] - phi[j,i-1]) / (2000.*dx)
-        self.vals2 = self.vals2 / f0
+            self.vals2[j,1:self.dim2-1] = phi[j,2:] - phi[j,:self.dim2-2]
+        self.vals2 = self.vals2 / (f0 * 2000.*dx)
 
 class VorticityAdvection(Field):
     def __init__(self):
