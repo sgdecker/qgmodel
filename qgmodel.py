@@ -34,11 +34,40 @@ beta = 2*omega*np.cos(lat_rad) / Re
 fmti0 = ticker.FormatStrFormatter("%.0f")
 vortint = range(-28, 36, 4)
 
+def intro():
+    """Displays introduction to the program."""
+
+    print "An Interactive Analytic QG Model for Synoptic Meteorology"
+    print u"         Copyright \u00a9 2014 Steven G. Decker"
+    print
+    print "You are viewing a Python implementation of the analytic QG model"
+    print "presented by Frederick Sanders in the May 1971 issue of"
+    print "Monthly Weather Review."
+    print
+    print "Use the checkboxes to turn on/off various fields.  Note that vectors"
+    print "may end up underneath filled contours depending on the order with"
+    print "which you click things.  A restart will fix this."
+    print
+    print "A number of model parameters may be changed with the sliders:"
+    print "p      - Which isobaric surface to view [hPa]"
+    print "L      - Wavelength [km] (i.e., distance between T/Z maxima)"
+    print u"\u03bb/L    - Phase shift between T and \u03a6 perturbations"
+    print "a      - Temperature gradient of background [K/km]"
+    print "p_trop - Tropopause pressure [hPa]"
+    print "T_hat  - Temperature perturbation magnitude [K]"
+    print u"\u03a6\u2080_hat - Geopotential perturbation magnitude [J/kg]"
+
 def calc_dx(x):
+    """Computes the grid spacing."""
+
     dx = x[1] - x[0]
     return dx
 
 def cint2lev(arr, cint):
+    """Determines appropriate contour levels for a plt.
+
+    arr -- The array that is about to be contoured
+    cint -- The requested contour interval"""
     if cint <= 0.:
         return []
     lb = arr.min()
@@ -58,14 +87,17 @@ def cint2lev(arr, cint):
     return res
 
 def stdatmt(p):
-    """Returns the temperature (K) of the standard atmosphere profile
-    at pressure p (mb)"""
-    tlist = [  291.4,   288.1,  284.9,  281.7,  278.4,  275.2,  271.9,  268.7,  265.4, \
-                 262.2,  258.9,  255.7,  252.4,  249.2,  245.9,  242.7,  239.5,  236.2, \
-                  233.0,  229.7,  226.5,  223.3,  220.0,  216.8, 216.7]
-    plist = [1074.78, 1013.25, 954.61, 898.76, 845.60, 795.01, 746.92, 701.21, 657.80, \
-                616.60, 577.53, 540.48, 505.39, 472.18, 440.75, 411.05, 383.00, 356.52, \
-                 331.54, 308.01, 285.85, 265.00, 245.40, 227.00, 209.85]
+    """The temperature [K] of the standard atmosphere profile at pressure p.
+
+    p -- The requested pressure [mb]"""
+    tlist = [  291.4,   288.1,  284.9,  281.7,  278.4,  275.2,  271.9,  \
+               268.7,   265.4,  262.2,  258.9,  255.7,  252.4,  249.2,  \
+               245.9,   242.7,  239.5,  236.2,  233.0,  229.7,  226.5,  \
+               223.3,   220.0,  216.8,  216.7]
+    plist = [1074.78, 1013.25, 954.61, 898.76, 845.60, 795.01, 746.92,  \
+              701.21,  657.80, 616.60, 577.53, 540.48, 505.39, 472.18,  \
+              440.75,  411.05, 383.00, 356.52, 331.54, 308.01, 285.85,  \
+              265.00,  245.40, 227.00, 209.85]
     if p < plist[-1]:
         return tlist[-1]
     else:
@@ -78,9 +110,13 @@ def stdatmt(p):
             * np.log(plist[i]/p)
 
 def integrand(p):
+    """A function needed to compute the geopotential profile."""
     return stdatmt(p/100.) / p
 
 def phimcalc(p):
+    """The geopotential [J/kg] of the standard atmosphere profile at pressure p.
+
+    p -- The requested pressure [mb]"""
     res, err = integrate.quad(integrand, 100*p, 100000., limit=80)
     return R * res
 
@@ -93,47 +129,55 @@ def phimcalc(p):
 #    return kappa - pPa * deriv
     
 def sigma(p):
+    """A model stability parameter at pressure p [mb]."""
     pPa = 100. * p
     return R * T0 * gamma / pPa**2
 
 def phi1000(x, y, phi0caret, L, lamb):
+    """Sanders' specification for the 1000-mb geopotential field."""
     return phi0caret * np.cos(2*np.pi*(x+lamb)/L) * np.cos(2*np.pi*y/L)
 
 def phi3d(x, y, p, phi0caret, L, lamb, a, Tcaret, alpha):
+    """The three-dimensional geopotential field."""
     lnp = np.log(p/1000.)
     return phimcalc(p) + phi1000(x, y, phi0caret, L, lamb)  \
         + R * (a*y + Tcaret * np.cos(2*np.pi*x/L) * np.cos(2*np.pi*y/L))  \
         * (lnp + .5*alpha*lnp**2)
 
 def T(x, y, p, alpha, a, Tcaret, L):
+    """The three-dimensional temperature field as specified by Sanders."""
     return stdatmt(p) - (1 - alpha * np.log(1000./p))  \
         * (a*y + Tcaret * np.cos(2*np.pi*x/L) * np.cos(2*np.pi*y/L))
 
 def vortadvf(x, y, p, L, Tcaret, alpha, a, phi0caret, lamb):
+    """Computes vorticity advection forcing analytically."""
     twopiL = 2*np.pi/L
     twopiLSI = 2*np.pi/(L*1000.)
     ln1000p = np.log(1000./p)
     one_minus_alpha_term = 1 - alpha*ln1000p
     pPa = 100. * p
-    part1 = (4. * twopiLSI**3 * R*(a/1000.)*Tcaret * pPa * ln1000p * one_minus_alpha_term  \
-                 * (1-.5*alpha*ln1000p) * np.sin(twopiL*x) * np.cos(twopiL*y))  \
-                 / (f0 * T0 * gamma)
+    part1 = (4. * twopiLSI**3 * R*(a/1000.)*Tcaret * pPa * ln1000p  \
+                 * one_minus_alpha_term * (1-.5*alpha*ln1000p)  \
+                 * np.sin(twopiL*x) * np.cos(twopiL*y)) / (f0 * T0 * gamma)
     part2 = (-twopiLSI*Tcaret*beta * pPa * one_minus_alpha_term  \
                  * np.sin(twopiL*x) * np.cos(twopiL*y)) / (T0 * gamma)
-    part3 = (-2. * twopiLSI**3 * (a/1000.)*phi0caret * pPa * one_minus_alpha_term  \
-                  * np.sin(twopiL*(x+lamb)) * np.cos(twopiL*y)) / (f0 * T0 * gamma) 
+    part3 = (-2. * twopiLSI**3 * (a/1000.)*phi0caret * pPa  \
+                  * one_minus_alpha_term * np.sin(twopiL*(x+lamb))  \
+                  * np.cos(twopiL*y)) / (f0 * T0 * gamma) 
 
     res = part1 + part2 + part3
     return 1e12 * res
 
 def tempadvf(x, y, p, L, Tcaret, alpha, a, phi0caret, lamb):
+    """Computes temperature advection forcing analytically."""
     twopiL = 2*np.pi/L
     twopiLSI = 2*np.pi/(1000.*L)
     ln1000p = np.log(1000./p)
     one_minus_alpha_term = 1 - alpha*ln1000p
     pPa = 100. * p
-    part1 = (-2. * twopiLSI**3 * (a/1000.)*phi0caret * pPa * one_minus_alpha_term  \
-                  * np.sin(twopiL*(x+lamb)) * np.cos(twopiL*y)) / (f0 * T0 * gamma)
+    part1 = (-2. * twopiLSI**3 * (a/1000.)*phi0caret * pPa  \
+                  * one_minus_alpha_term * np.sin(twopiL*(x+lamb))  \
+                  * np.cos(twopiL*y)) / (f0 * T0 * gamma)
     part2 = 2 * twopiLSI**4 * phi0caret * Tcaret * pPa * one_minus_alpha_term  \
         * np.sin(twopiL*lamb) * np.sin(2*twopiL*y) / (f0 * T0 * gamma)
 
@@ -141,6 +185,7 @@ def tempadvf(x, y, p, L, Tcaret, alpha, a, phi0caret, lamb):
     return 1e12 * res
 
 def omegaf(x, y, p, L, Tcaret, alpha, a, phi0caret, lamb):
+    """Computes vertical motion [ub/s] analytically."""
     twopiL = 2*np.pi/L
     twopiLSI = 2*np.pi/(1000.*L)
     ln1000p = np.log(1000./p)
@@ -156,9 +201,11 @@ def omegaf(x, y, p, L, Tcaret, alpha, a, phi0caret, lamb):
     qm1 = .5 * np.sqrt(1 + 4./k) - .5
     one_minus_p_qm1 = 1 - (p/1000.)**qm1
 
-    P11 = pPa * ((2*k + 6*alpha*k*(k+1) + 6*alpha**2*k**2*(k+2)) * one_minus_p_qm1  \
-        - (2 + 6*alpha*k + 6*alpha**2*k*(k+1)) * ln1000p  \
-        + (3*alpha + 3*alpha**2*k) * ln1000p**2 - alpha**2 * ln1000p**3)
+    P11 = pPa * ((2*k + 6*alpha*k*(k+1) + 6*alpha**2*k**2*(k+2))  \
+                     * one_minus_p_qm1  \
+                     - (2 + 6*alpha*k + 6*alpha**2*k*(k+1)) * ln1000p  \
+                     + (3*alpha + 3*alpha**2*k) * ln1000p**2  \
+                     - alpha**2 * ln1000p**3)
     P12 = pPa * ((alpha*k + 1) * one_minus_p_qm1 - alpha * ln1000p)
 
     omega1 = (K11*P11 + K12*P12) * np.sin(twopiL*x) * np.cos(twopiL*y)
@@ -181,7 +228,13 @@ def omegaf(x, y, p, L, Tcaret, alpha, a, phi0caret, lamb):
 
 
 class Field(object):
+    """The base class for any field we may wish to compute using the model.
+
+    Classes that extend this class must define a cc method that generates the
+    appropriate plot."""
+
     def __init__(self, visibility, name, label):
+        """Initializes a Field object."""
         self.visibility = visibility
         self.created = visibility
         self.name = name
@@ -190,6 +243,7 @@ class Field(object):
         self.midlabel = "Advection/Forcing Terms (scaled SI units)"
 
     def set_coords(self, coords):
+        """Sets up the coordinates for the field."""
         self.x = coords["x"]
         self.y = coords["y"]
         self.xx = coords["xx"]
@@ -200,6 +254,7 @@ class Field(object):
         self.vals2 = np.empty((self.dim1,self.dim2))
 
     def create_contours(self, fig, ax, params, coords):
+        """Creates the plot of the field."""
         self.set_coords(coords)
 
         if self.visibility:
@@ -208,6 +263,7 @@ class Field(object):
             self.created = False
 
     def update_visibility(self, fig, ax, params, coords):
+        """Updates the field's visibility."""
         self.visibility = not self.visibility
         if self.visibility:
             if self.created:
@@ -241,9 +297,11 @@ class RelativeVorticity(Field):
             self.vals[j,0] = (phi[j,-2] + phi[j-1,0] -4*phi[j,0] + phi[j+1,0]  \
                                   + phi[j,1]) / (f0 * (1000.*dx)**2)
             for i in range(1, self.dim2-1):
-                self.vals[j,i] = (phi[j,i-1] + phi[j-1,i] -4*phi[j,i] + phi[j+1,i]  \
+                self.vals[j,i] = (phi[j,i-1] + phi[j-1,i] -4*phi[j,i]  \
+                                      + phi[j+1,i]  \
                                       + phi[j,i+1]) / (f0 * (1000.*dx)**2)
-            self.vals[j,-1] = (phi[j,-2] + phi[j-1,-1] -4*phi[j,-1] + phi[j+1,-1]  \
+            self.vals[j,-1] = (phi[j,-2] + phi[j-1,-1] -4*phi[j,-1]  \
+                                   + phi[j+1,-1]  \
                                    + phi[j,1]) / (f0 * (1000.*dx)**2)
         self.vals *= 1e5  # Convert result to 10^-5 s-1
 
@@ -292,8 +350,8 @@ class GeopotentialHeight(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
         lev = cint2lev(self.vals, 6.)
-        self.contset = ax.contour(self.x, self.y, self.vals, colors="k", linewidths=2,  \
-                                      levels=lev)
+        self.contset = ax.contour(self.x, self.y, self.vals, colors="k",  \
+                                      linewidths=2, levels=lev)
         self.contset.clabel(fmt=fmti0)
 
     def compute_vals(self, params):
@@ -308,7 +366,7 @@ class GeopotentialHeight(Field):
         lamb = L * phase
         alpha = 1. / np.log(1000./ptrop)
         phi1 = phi3d(self.xx, self.yy, p, phi0caret, L, lamb, a, Tcaret, alpha)
-        self.vals = phi1 / (10*g)  # Convert from geopotential to height in decameters
+        self.vals = phi1 / (10*g)  # Convert from geopotential to height in dam
 
 
 class GeopotentialHeight1000(Field):
@@ -337,7 +395,7 @@ class GeopotentialHeight1000(Field):
         lamb = L * phase
 
         phi1 = phi1000(self.xx, self.yy, phi0caret, L, lamb)
-        self.vals = phi1 / (10*g)  # Convert from geopotential to height in decameters
+        self.vals = phi1 / (10*g)  # Convert from geopotential to height in dam
 
 
 class Temperature(Field):
@@ -346,7 +404,8 @@ class Temperature(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
-        self.contset = ax.contour(self.x, self.y, self.vals, levels=range(190,340,5))
+        self.contset = ax.contour(self.x, self.y, self.vals,  \
+                                      levels=range(190,340,5))
         self.contset.clabel(fmt=fmti0)
 
     def compute_vals(self, params):
@@ -382,8 +441,8 @@ class Thickness(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
         lev = cint2lev(self.vals, 6.)
-        self.contset = ax.contour(self.x, self.y, self.vals, colors="k", linewidths=2,  \
-                                      linestyles="--", levels=lev)
+        self.contset = ax.contour(self.x, self.y, self.vals, colors="k",  \
+                                      linewidths=2, linestyles="--", levels=lev)
         self.contset.clabel(fmt=fmti0)
 
     def compute_vals(self, params, coords):
@@ -408,9 +467,10 @@ class GeostrophicWind(Field):
         
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
-        self.contset = ax.quiver(self.x[::3], self.y[::3], self.vals[::3,::3],  \
-                                     self.vals2[::3,::3], angles="xy",  \
-                                     scale_units="xy", scale=.3, color="#440000")
+        self.contset = ax.quiver(self.x[::3], self.y[::3],  \
+                                     self.vals[::3,::3], self.vals2[::3,::3],  \
+                                     angles="xy", scale_units="xy", scale=.3,  \
+                                     color="#440000")
 
     def compute_vals(self, params):
         L = params["L"]
@@ -449,8 +509,8 @@ class VorticityAdvection(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
         cmap = plt.cm.get_cmap("winter")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-10,11),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(self.midlabel, labelpad=-8)
@@ -469,9 +529,11 @@ class VorticityAdvection(Field):
         for j in range(1, self.dim1-1):
             for i in range(1, self.dim2-1):
                 self.vals[j,i] = 1e4 * (Vg.vals[j,i]  \
-                                            * (eta.vals[j,i-1] - eta.vals[j,i+1])  \
+                                            * (eta.vals[j,i-1]  \
+                                                   - eta.vals[j,i+1])  \
                                             + Vg.vals2[j,i]  \
-                                            * (eta.vals[j-1,i] - eta.vals[j+1,i])) / dx
+                                            * (eta.vals[j-1,i]  \
+                                                   - eta.vals[j+1,i])) / dx
 
 
 class DifferentialVorticityAdvection(Field):
@@ -481,8 +543,8 @@ class DifferentialVorticityAdvection(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
         cmap = plt.cm.get_cmap("winter")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-10,11),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(self.midlabel, labelpad=-8)
@@ -511,8 +573,8 @@ class DifferentialVorticityAdvectionAnalytic(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
         cmap = plt.cm.get_cmap("winter")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-10,11),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(self.midlabel, labelpad=-8)
@@ -528,7 +590,8 @@ class DifferentialVorticityAdvectionAnalytic(Field):
 
         lamb = L * phase
         alpha = 1. / np.log(1000./ptrop)
-        self.vals = vortadvf(self.xx, self.yy, p, L, Tcaret, alpha, a, phi0caret, lamb)
+        self.vals = vortadvf(self.xx, self.yy, p, L, Tcaret, alpha, a,  \
+                                 phi0caret, lamb)
 
 
 class TemperatureAdvection(Field):
@@ -538,8 +601,8 @@ class TemperatureAdvection(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
         cmap = plt.cm.get_cmap("winter")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-10,11),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(self.midlabel, labelpad=-8)
@@ -558,9 +621,11 @@ class TemperatureAdvection(Field):
         for j in range(1, self.dim1-1):
             for i in range(1, self.dim2-1):
                 self.vals[j,i] = 1e4 * (Vg.vals[j,i]  \
-                                            * (t.vals[j,i-1] - t.vals[j,i+1])  \
+                                            * (t.vals[j,i-1]  \
+                                                   - t.vals[j,i+1])  \
                                             + Vg.vals2[j,i]  \
-                                            * (t.vals[j-1,i] - t.vals[j+1,i])) / dx
+                                            * (t.vals[j-1,i]  \
+                                                   - t.vals[j+1,i])) / dx
 
 
 class LapTemperatureAdvectionAnalytic(Field):
@@ -570,8 +635,8 @@ class LapTemperatureAdvectionAnalytic(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
         cmap = plt.cm.get_cmap("winter")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-10,11),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(self.midlabel, labelpad=-8)
@@ -587,7 +652,8 @@ class LapTemperatureAdvectionAnalytic(Field):
 
         lamb = L * phase
         alpha = 1. / np.log(1000./ptrop)
-        self.vals = tempadvf(self.xx, self.yy, p, L, Tcaret, alpha, a, phi0caret, lamb)
+        self.vals = tempadvf(self.xx, self.yy, p, L, Tcaret, alpha, a,  \
+                                 phi0caret, lamb)
 
 
 class TotalForcing(Field):
@@ -597,8 +663,8 @@ class TotalForcing(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
         cmap = plt.cm.get_cmap("winter")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-20,21),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-20,21), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(self.midlabel, labelpad=-8)
@@ -626,7 +692,8 @@ class QVector(Field):
         
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
-        self.contset = ax.quiver(self.x[2::3], self.y[2::3], self.vals[2::3,2::3],  \
+        self.contset = ax.quiver(self.x[2::3], self.y[2::3],  \
+                                     self.vals[2::3,2::3],  \
                                      self.vals2[2::3,2::3], angles="xy",  \
                                      scale_units="xy", scale=1, color="#660066")
     
@@ -670,8 +737,8 @@ class QGOmega(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
         cmap = plt.cm.get_cmap("BrBG")
-        self.contset = ax.contourf(self.x, self.y, self.vals, levels=range(-10,11),  \
-                                       cmap=cmap)
+        self.contset = ax.contourf(self.x, self.y, self.vals,  \
+                                       levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.95, 0.25, 0.01, 0.6])
         cb = fig.colorbar(self.contset, cax=cbar_ax)
         cb.set_label(r"$\omega$ ($\mu$b s$^{-1}$)", labelpad=-9)
@@ -687,7 +754,8 @@ class QGOmega(Field):
 
         lamb = L * phase
         alpha = 1. / np.log(1000./ptrop)
-        self.vals = omegaf(self.xx, self.yy, p, L, Tcaret, alpha, a, phi0caret, lamb)
+        self.vals = omegaf(self.xx, self.yy, p, L, Tcaret, alpha, a,  \
+                               phi0caret, lamb)
 
 
 class SandersModel(object):
@@ -773,7 +841,8 @@ class SandersModel(object):
     def select_vis(self, label):
         for f in self.fields:
             if label == f.label:
-                f.update_visibility(self.fig, self.ax, self.params, self.coordinates)
+                f.update_visibility(self.fig, self.ax, self.params,  \
+                                        self.coordinates)
                 break
 
         self.fig.canvas.draw()
@@ -783,6 +852,8 @@ class SandersModel(object):
         y = np.linspace(-.5*L, .5*L, 51)
         xx, yy = np.meshgrid(x, y, sparse=True)
         return {"x": x, "y": y, "xx": xx, "yy": yy}
+
+intro()
 
 model = SandersModel()
 
@@ -795,25 +866,26 @@ slider1.on_changed(model.on_changeL)
 
 # Phase shift slider
 slider_ax = plt.axes([0.1, 0.07, 0.5, 0.02])
-slider2 = Slider(slider_ax, r"$\lambda / L$", -.5, .5, valinit=model.params["phase"],  \
-                     color='#AAAAAA')
+slider2 = Slider(slider_ax, r"$\lambda / L$", -.5, .5,  \
+                     valinit=model.params["phase"], color='#AAAAAA')
 slider2.on_changed(model.on_changephase)
 
 # Temperature gradient slider
 slider_ax = plt.axes([0.1, 0.05, 0.5, 0.01])
-slider3 = Slider(slider_ax, r"$a$", 0., .02, valinit=model.params["a"], color='#AAAAAA')
+slider3 = Slider(slider_ax, r"$a$", 0., .02, valinit=model.params["a"],  \
+                     color='#AAAAAA')
 slider3.on_changed(model.on_changea)
 
 # Tropopause pressure slider
 slider_ax = plt.axes([0.1, 0.035, 0.5, 0.01])
-slider4 = Slider(slider_ax, r"$p_{trop}$", 100., 450., valinit=model.params["ptrop"],  \
-                     color='#AAAAAA')
+slider4 = Slider(slider_ax, r"$p_{trop}$", 100., 450.,  \
+                     valinit=model.params["ptrop"], color='#AAAAAA')
 slider4.on_changed(model.on_changeptrop)
 
 # Temperature perturbation slider
 slider_ax = plt.axes([0.1, 0.02, 0.5, 0.01])
-slider5 = Slider(slider_ax, r"$\hat{T}$", 0., 20., valinit=model.params["Tcaret"],  \
-                     color='#AAAAAA')
+slider5 = Slider(slider_ax, r"$\hat{T}$", 0., 20.,  \
+                     valinit=model.params["Tcaret"], color='#AAAAAA')
 slider5.on_changed(model.on_changeTcaret)
 
 # Geopotential perturbation slider
