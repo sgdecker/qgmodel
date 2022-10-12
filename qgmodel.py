@@ -686,10 +686,10 @@ class QVector(Field):
         
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
-        self.contset = ax.quiver(self.x[2::3], self.y[2::3],  \
-                                     self.vals[2::3,2::3],  \
-                                     self.vals2[2::3,2::3], angles="xy",  \
-                                     scale_units="xy", scale=1, color="#660066")
+        self.contset = ax.quiver(self.x[2::3], self.y[2::3],
+                                 self.vals[2::3, 2::3],
+                                 self.vals2[2::3, 2::3], angles="xy", pivot="mid",
+                                 scale_units="xy", scale=1, color="#660066")
     
     def compute_vals(self, params, coords):
         Vg = GeostrophicWind()
@@ -730,7 +730,7 @@ class QGOmega(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
-        cmap = plt.cm.get_cmap("BrBG")
+        cmap = plt.cm.get_cmap("BrBG_r")
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.95, 0.25, 0.01, 0.6])
