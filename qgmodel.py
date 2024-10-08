@@ -16,6 +16,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, CheckButtons, Button
+from matplotlib import colormaps
 from matplotlib import ticker
 from scipy import integrate
 
@@ -502,7 +503,7 @@ class VorticityAdvection(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
-        cmap = plt.cm.get_cmap("winter")
+        cmap = colormaps["winter"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
@@ -536,7 +537,7 @@ class DifferentialVorticityAdvection(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
-        cmap = plt.cm.get_cmap("winter")
+        cmap = colormaps["winter"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
@@ -566,7 +567,7 @@ class DifferentialVorticityAdvectionAnalytic(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
-        cmap = plt.cm.get_cmap("winter")
+        cmap = colormaps["winter"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
@@ -594,7 +595,7 @@ class TemperatureAdvection(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
-        cmap = plt.cm.get_cmap("winter")
+        cmap = colormaps["winter"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
@@ -628,7 +629,7 @@ class LapTemperatureAdvectionAnalytic(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
-        cmap = plt.cm.get_cmap("winter")
+        cmap = colormaps["winter"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
@@ -656,7 +657,7 @@ class TotalForcing(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params, coords)
-        cmap = plt.cm.get_cmap("winter")
+        cmap = colormaps["winter"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-20,21), cmap=cmap)
         cbar_ax = fig.add_axes([0.9, 0.25, 0.01, 0.6])
@@ -730,7 +731,7 @@ class QGOmega(Field):
 
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
-        cmap = plt.cm.get_cmap("BrBG_r")
+        cmap = colormaps["BrBG_r"]
         self.contset = ax.contourf(self.x, self.y, self.vals,  \
                                        levels=range(-10,11), cmap=cmap)
         cbar_ax = fig.add_axes([0.95, 0.25, 0.01, 0.6])
