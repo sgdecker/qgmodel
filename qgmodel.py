@@ -381,7 +381,7 @@ class GeopotentialHeight1000(Field):
         self.contset.clabel(vlist, fmt=fmti0)
         for i, val in enumerate(self.contset.levels):
             if val == 0.:
-                self.contset.collections[i].remove()
+                self.contset.remove()
                 break
 
     def compute_vals(self, params):
