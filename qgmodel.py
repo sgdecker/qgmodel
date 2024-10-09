@@ -265,13 +265,9 @@ class Field(object):
         """Updates the field's visibility."""
         self.visibility = not self.visibility
         if self.visibility:
-            if self.created:
-                self.contset.set_alpha(1.)
-            else:
-                self.cc(fig, ax, params, coords)
-                self.created = True
+            self.cc(fig, ax, params, coords)
         else:
-            self.contset.set_alpha(0.)
+            self.contset.remove()
 
 
 class RelativeVorticity(Field):
@@ -373,16 +369,13 @@ class GeopotentialHeight1000(Field):
     def cc(self, fig, ax, params, coords):
         self.compute_vals(params)
         self.contset = ax.contour(self.x, self.y, self.vals, colors=".2",  \
-                                      levels=range(-18,21,3))
+                                      levels=[-18, -15, -12, -9, -6, -3,
+                                              3, 6, 9, 12, 15, 18])
         vlist = []
         for v in self.contset.levels:
             if v != 0.:
                 vlist.append(v)
         self.contset.clabel(vlist, fmt=fmti0)
-        for i, val in enumerate(self.contset.levels):
-            if val == 0.:
-                self.contset.remove()
-                break
 
     def compute_vals(self, params):
         L = params["L"]
